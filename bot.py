@@ -10,93 +10,106 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 users = db["users"]
 channels = db["channels"]
-filters = db["filters"]
 
 # 📌 Reply Keyboard Menu
 def main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("➕ Add Channel", "📜 Help")
-    markup.add("📝 Manage Filters", "📡 Broadcast")
-    markup.add("📊 Statistics")
+    markup.add("➕ Add Source Channel", "❌ Remove Source Channel")
+    markup.add("🎯 Set Destination Channel", "❌ Remove Destination Channel")
+    markup.add("📡 Broadcast", "📊 Statistics")
+    markup.add("📜 Help")
     return markup
 
-# 🎉 Welcome Message
+# 🎉 Stylish Welcome Message
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
     if users.find_one({"user_id": user_id}) is None:
         users.insert_one({"user_id": user_id})
-
-    welcome_text = (
-        "✨ *Welcome to Auto-Forward Bot!* ✨\n\n"
-        "🔹 Use the menu below to get started."
-    )
     
+    welcome_text = (
+        "🌟 *Welcome to Auto-Forward Bot!* 🌟\n\n"
+        "🚀 _Effortlessly forward messages from any channel to your own!_\n\n"
+        "🔹 *Features:*\n"
+        "✅ Auto-forward messages without admin access.\n"
+        "✅ Add/remove multiple source & destination channels.\n"
+        "✅ Broadcast messages to all users.\n"
+        "✅ View bot statistics.\n\n"
+        "📌 *Use the menu below to navigate.*"
+    )
     bot.send_message(user_id, welcome_text, reply_markup=main_menu(), parse_mode="Markdown")
 
-# 📜 Help
+# 📜 Stylish Help Message
 @bot.message_handler(func=lambda message: message.text == "📜 Help")
 def help_info(message):
     help_text = (
-        "📌 *Bot Features:*\n\n"
-        "✅ Auto Forward messages.\n"
-        "✅ Add multiple channels.\n"
-        "✅ Filter & Replace words.\n"
-        "✅ Broadcast messages.\n"
-        "✅ View user statistics."
+        "📌 *Bot Features & Guide:*\n\n"
+        "🔹 *Add Source Channel* → Forward messages from a channel.\n"
+        "🔹 *Remove Source Channel* → Stop forwarding from a channel.\n"
+        "🔹 *Set Destination Channel* → Select where messages will be sent.\n"
+        "🔹 *Remove Destination Channel* → Stop sending messages to a channel.\n"
+        "🔹 *Broadcast* → Send a message to all bot users.\n"
+        "🔹 *Statistics* → View the number of users & channels.\n\n"
+        "💡 *Navigation is easy!* Use the buttons below."
     )
     bot.send_message(message.chat.id, help_text, parse_mode="Markdown", reply_markup=main_menu())
 
-# ➕ Add Channel
-@bot.message_handler(func=lambda message: message.text == "➕ Add Channel")
-def ask_channel(message):
-    bot.send_message(message.chat.id, "Send the channel username (Example: `@yourchannel`)", parse_mode="Markdown")
-    bot.register_next_step_handler(message, save_channel)
+# ➕ Add Source Channel
+@bot.message_handler(func=lambda message: message.text == "➕ Add Source Channel")
+def ask_source_channel(message):
+    bot.send_message(message.chat.id, "📥 *Send the source channel username* (Example: `@sourcechannel`)", parse_mode="Markdown")
+    bot.register_next_step_handler(message, save_source_channel)
 
-def save_channel(message):
+def save_source_channel(message):
     user_id = message.chat.id
     channel_id = message.text
-    channels.insert_one({"user_id": user_id, "channel_id": channel_id})
-    bot.send_message(user_id, f"✅ Channel `{channel_id}` added!", parse_mode="Markdown", reply_markup=main_menu())
+    channels.insert_one({"user_id": user_id, "channel_id": channel_id, "type": "source"})
+    bot.send_message(user_id, f"✅ *Source Channel `{channel_id}` added!*", parse_mode="Markdown", reply_markup=main_menu())
 
-# 🔍 Manage Filters
-@bot.message_handler(func=lambda message: message.text == "📝 Manage Filters")
-def manage_filters(message):
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("➕ Add Filter", "❌ Remove Filter")
-    markup.add("🔙 Back")
-    bot.send_message(message.chat.id, "📝 *Manage Filters*", reply_markup=markup, parse_mode="Markdown")
+# ❌ Remove Source Channel
+@bot.message_handler(func=lambda message: message.text == "❌ Remove Source Channel")
+def ask_remove_source_channel(message):
+    bot.send_message(message.chat.id, "📤 *Send the source channel username to remove:*", parse_mode="Markdown")
+    bot.register_next_step_handler(message, remove_source_channel)
 
-# ➕ Add Filter
-@bot.message_handler(func=lambda message: message.text == "➕ Add Filter")
-def ask_filter(message):
-    bot.send_message(message.chat.id, "Send the word and replacement (Example: `badword goodword`)", parse_mode="Markdown")
-    bot.register_next_step_handler(message, save_filter)
+def remove_source_channel(message):
+    user_id = message.chat.id
+    channel_id = message.text
+    result = channels.delete_one({"user_id": user_id, "channel_id": channel_id, "type": "source"})
 
-def save_filter(message):
-    try:
-        word, replacement = message.text.split()
-        filters.insert_one({"word": word, "replacement": replacement})
-        bot.send_message(message.chat.id, f"✅ Filter added: `{word}` → `{replacement}`", parse_mode="Markdown", reply_markup=main_menu())
-    except:
-        bot.send_message(message.chat.id, "❌ Invalid format! Example: `badword goodword`", parse_mode="Markdown")
+    if result.deleted_count > 0:
+        bot.send_message(user_id, f"❌ *Source Channel `{channel_id}` removed!*", parse_mode="Markdown", reply_markup=main_menu())
+    else:
+        bot.send_message(user_id, "❌ *Source Channel not found!*", parse_mode="Markdown")
 
-# ❌ Remove Filter
-@bot.message_handler(func=lambda message: message.text == "❌ Remove Filter")
-def remove_filter(message):
-    bot.send_message(message.chat.id, "Send the word to remove:", parse_mode="Markdown")
-    bot.register_next_step_handler(message, delete_filter)
+# 🎯 Set Destination Channel
+@bot.message_handler(func=lambda message: message.text == "🎯 Set Destination Channel")
+def ask_destination_channel(message):
+    bot.send_message(message.chat.id, "📥 *Send the destination channel username* (Example: `@yourdestination`)", parse_mode="Markdown")
+    bot.register_next_step_handler(message, save_destination_channel)
 
-def delete_filter(message):
-    word = message.text
-    filters.delete_one({"word": word})
-    bot.send_message(message.chat.id, f"✅ Filter `{word}` removed!", parse_mode="Markdown", reply_markup=main_menu())
+def save_destination_channel(message):
+    user_id = message.chat.id
+    channel_id = message.text
+    channels.update_one({"user_id": user_id, "type": "destination"}, {"$set": {"channel_id": channel_id}}, upsert=True)
+    bot.send_message(user_id, f"✅ *Destination Channel set to `{channel_id}`!*", parse_mode="Markdown", reply_markup=main_menu())
+
+# ❌ Remove Destination Channel
+@bot.message_handler(func=lambda message: message.text == "❌ Remove Destination Channel")
+def remove_destination_channel(message):
+    user_id = message.chat.id
+    result = channels.delete_one({"user_id": user_id, "type": "destination"})
+
+    if result.deleted_count > 0:
+        bot.send_message(user_id, "❌ *Destination Channel removed!*", parse_mode="Markdown", reply_markup=main_menu())
+    else:
+        bot.send_message(user_id, "❌ *No Destination Channel found!*", parse_mode="Markdown")
 
 # 📡 Broadcast Feature
 @bot.message_handler(func=lambda message: message.text == "📡 Broadcast")
 def ask_broadcast(message):
     if message.chat.id == ADMIN_ID:
-        bot.send_message(message.chat.id, "Send the broadcast message:", parse_mode="Markdown")
+        bot.send_message(message.chat.id, "📢 *Send the broadcast message:*", parse_mode="Markdown")
         bot.register_next_step_handler(message, send_broadcast)
 
 def send_broadcast(message):
@@ -112,7 +125,7 @@ def send_broadcast(message):
             except:
                 failed += 1
 
-        bot.send_message(message.chat.id, f"📢 Broadcast Sent!\n✅ Success: {success}\n❌ Failed: {failed}", reply_markup=main_menu())
+        bot.send_message(message.chat.id, f"📢 *Broadcast Sent!*\n✅ Success: {success}\n❌ Failed: {failed}", reply_markup=main_menu())
 
 # 📊 Statistics
 @bot.message_handler(func=lambda message: message.text == "📊 Statistics")
@@ -121,17 +134,16 @@ def stats(message):
     total_channels = channels.count_documents({})
     bot.send_message(message.chat.id, f"📊 *Bot Statistics:*\n👤 Users: {total_users}\n📡 Channels: {total_channels}", parse_mode="Markdown", reply_markup=main_menu())
 
-# 🔄 Forward Messages with Filtering
+# 🔄 Forward Messages from Source to Destination
 @bot.channel_post_handler()
 def forward_messages(message):
-    channel_id = message.chat.id
-    registered_channels = channels.find({"channel_id": str(channel_id)})
+    source_channels = [entry["channel_id"] for entry in channels.find({"type": "source"})]
+    destination_channel = channels.find_one({"type": "destination"})
 
-    for entry in registered_channels:
-        user_id = entry["user_id"]
-        text = message.text
-        for word in filters.find():
-            text = text.replace(word["word"], word["replacement"])
-        bot.send_message(user_id, text)
+    if message.chat.username in source_channels and destination_channel:
+        try:
+            bot.copy_message(destination_channel["channel_id"], message.chat.id, message.message_id)
+        except Exception as e:
+            print(f"Error forwarding message: {e}")
 
 bot.polling()
