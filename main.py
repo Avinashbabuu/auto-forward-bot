@@ -52,10 +52,13 @@ async def set_destination(bot, message):
     async def destination_username(bot, message):
         channel_id = await get_channel_id(message.text)
         if channel_id:
-            data = load_data()
-            data["destination_channel"] = channel_id
-            save_data(data)
-            await message.reply_text(f"✅ Destination Channel Set: `{message.text}` (ID: {channel_id})")
+            if await is_admin(bot, channel_id):  # Check if bot is admin
+                data = load_data()
+                data["destination_channel"] = channel_id
+                save_data(data)
+                await message.reply_text(f"✅ Destination Channel Set: `{message.text}` (ID: {channel_id})")
+            else:
+                await message.reply_text("❌ Bot is not an admin in the destination channel!")
         else:
             await message.reply_text("❌ Invalid Channel Username or Link!")
 
