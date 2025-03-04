@@ -22,7 +22,7 @@ async def start(bot, message):
         "**Welcome to Auto Forward Bot!**\n\n"
         "Use the buttons to set up your bot.",
         reply_markup=ReplyKeyboardMarkup(
-            [["Set Source", "Set Destination"], ["Add Filter", "Remove Filter"]],
+            [["Set Source", "Set Destination"], ["Start Forwarding", "Stop Forwarding"], ["Add Filter", "Remove Filter"], ["Remove Channel"]],
             resize_keyboard=True
         )
     )
@@ -59,11 +59,35 @@ async def set_destination(bot, message):
         else:
             await message.reply_text("❌ Invalid Channel Username or Link!")
 
+# Start Forwarding
+@bot.on_message(filters.text & filters.regex("Start Forwarding"))
+async def start_forwarding(bot, message):
+    data = load_data()
+    data["forwarding"] = True
+    save_data(data)
+    await message.reply_text("✅ Forwarding Started!")
+
+# Stop Forwarding
+@bot.on_message(filters.text & filters.regex("Stop Forwarding"))
+async def stop_forwarding(bot, message):
+    data = load_data()
+    data["forwarding"] = False
+    save_data(data)
+    await message.reply_text("❌ Forwarding Stopped!")
+
+# Remove Destination Channel
+@bot.on_message(filters.text & filters.regex("Remove Channel"))
+async def remove_channel(bot, message):
+    data = load_data()
+    data.pop("destination_channel", None)
+    save_data(data)
+    await message.reply_text("✅ Destination Channel Removed!")
+
 # Forward Messages with Filters
-@bot.on_message(filters.chat(lambda _, __, message: load_data()["source_channel"] == message.chat.id))
+@bot.on_message(filters.chat(lambda _, __, message: load_data().get("source_channel") == message.chat.id))
 async def forward_message(bot, message):
     data = load_data()
-    if data["destination_channel"]:
+    if data.get("destination_channel") and data.get("forwarding", False):
         filtered_text = apply_filters(message.text)
         await bot.send_message(data["destination_channel"], filtered_text)
 
@@ -91,14 +115,6 @@ async def remove_filter(bot, message):
             await message.reply_text(f"✅ Word Removed: `{message.text}`")
         else:
             await message.reply_text("❌ Word Not Found in Filters!")
-
-# Forward Messages with Filters
-@bot.on_message(filters.chat(lambda _, __, message: load_data()["source_channel"] == message.chat.id))
-async def forward_message(bot, message):
-    data = load_data()
-    if data["destination_channel"]:
-        filtered_text = apply_filters(message.text)
-        await bot.send_message(data["destination_channel"], filtered_text)
 
 # Run Bot
 bot.run()
