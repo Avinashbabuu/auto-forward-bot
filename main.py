@@ -43,7 +43,13 @@ async def set_source(bot, message):
         else:
             await message.reply_text("❌ Invalid Channel Username or Link!")
 
-# Set Destination Channel
+async def is_admin(bot, chat_id):
+    try:
+        member = await bot.get_chat_member(chat_id, bot.me.id)
+        return member.status in ["administrator", "creator"]
+    except Exception as e:
+        return False  # Agar error aaye toh assume kare ki bot admin nahi hai
+
 @bot.on_message(filters.text & filters.regex("Set Destination"))
 async def set_destination(bot, message):
     await message.reply_text("Send the Destination Channel Username or Link:")
