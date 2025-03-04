@@ -3,6 +3,7 @@ import configparser
 from pyrogram import Client, filters
 from filters import apply_filters, load_data, save_data
 from helpers import get_channel_id
+from pyrogram.types import ReplyKeyboardMarkup
 
 # Load config
 config = configparser.ConfigParser()
